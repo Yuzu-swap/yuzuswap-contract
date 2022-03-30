@@ -57,7 +57,7 @@ contract YUZUStake is
 
     struct StakeConfig {
         uint256 blockCount; // block count should staked last
-        uint256 ratioBase10000; // ratio of xYUZU to mint based of 100000
+        uint256 ratioBase10000; // ratio of xYUZU to mint based of 10000
     }
 
     //variables
@@ -111,13 +111,15 @@ contract YUZUStake is
 
     /// update stake's config by staked last block count and xYUZU mint ratio
     /// @param _cid  index of config
-    /// @param _blockCount  address of YUZU token
-    /// @param _ratioBase10000  address of YUZU token
+    /// @param _blockCount  set pre-defined block count
+    /// @param _ratioBase10000  set pre-defined base ratio
     function setConfig(
         uint32 _cid,
         uint256 _blockCount,
         uint256 _ratioBase10000
     ) external configExists(_cid) onlyOwner {
+        require(_cid < configLength(), "YuzuStake: config not exist");
+        require(_blockCount != 0, "YuzuStake: block count nonzero");
         // set config
         StakeConfig storage stakeConfig = configs[_cid];
         stakeConfig.blockCount = _blockCount;
@@ -126,12 +128,13 @@ contract YUZUStake is
     }
 
     /// add stake's config by staked last block count and xYUZU mint ratio
-    /// @param _blockCount  address of YUZU token
-    /// @param _ratioBase10000  address of YUZU token
+    /// @param _blockCount  set pre-defined block count
+    /// @param _ratioBase10000  set pre-defined base ratio
     function addConfig(uint256 _blockCount, uint256 _ratioBase10000)
         external
         onlyOwner
     {
+        require(_blockCount != 0, "YuzuStake: block count nonzero");
         configs.push(
             StakeConfig({
                 blockCount: _blockCount,
@@ -240,7 +243,7 @@ contract YUZUStake is
         orderExists(_oid)
         nonReentrant
     {
-        StakeOrder memory stakeOrder = orders[_oid];
+        StakeOrder storage stakeOrder = orders[_oid];
         require(stakeOrder.from == msg.sender, "YuzuStake: not order owner ");
         require(
             stakeOrder.status == StakeOrderStatus.UNSTAKED,
@@ -256,6 +259,22 @@ contract YUZUStake is
         //Transfer back yuzu
         yuzuTokenIns.safeTransfer(msg.sender, stakeOrder.depositAmount);
         emit OrderWithdrawed(_oid, block.number);
+    }
+
+    function configLength()
+        external
+        view
+        returns (uint256)
+    {
+        return configs.length;
+    }
+
+    function orderLength()
+        external
+        view
+        returns (uint256)
+    {
+        return orders.length;
     }
 
     function getOrderIds(address from)
