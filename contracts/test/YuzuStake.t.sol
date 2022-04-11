@@ -6,7 +6,6 @@ import {DSTestPlus} from "./utils/DSTestPlus.sol";
 import {MockToken} from "./utils/MockToken.sol";
 import "../YuzuStake.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-// import "@openzeppelin/contracts/math/SafeMath.sol";
 
 contract YuzuStakeTest is DSTestPlus {
 	using SafeMath for uint256;
@@ -62,54 +61,60 @@ contract YuzuStakeTest is DSTestPlus {
 
 	// 1.1 test constructor succeed if if input NOT address(0)
 	function testConstructWithNonZeroAddress(address tokenAddr) public {
+		//Excluding the address(0) testing case;
         hevm.assume(tokenAddr != address(0));
 		YUZUStake ys = new YUZUStake(IERC20(tokenAddr));
 	}
 
 	// 1.2 test $yuzuTokenIns == $_yuzuToken when setConfig succeed
 	function testVar_yuzuTokenIns_Is__yuzuToken(address _yuzuTokenAddr) public {
+		//Excluding the address(0) testing case;
+		hevm.assume(_yuzuTokenAddr != address(0));
+		//Creating a new YUZU staking contract and check if the staking contract has correct token address. 
 		YUZUStake ys = new YUZUStake(IERC20(_yuzuTokenAddr));
 		assertEq(address(ys.yuzuTokenIns()), _yuzuTokenAddr);
 	}
 	
-	// *1.3 test owner setup
+	// 1.3 test owner setup
 	function test_owner() public {
+		//The owner should admin.
 		assertEq(yuzustake.owner(), admin);
 	}
 
 	// 2. setConfig(uint32 _cid, uint256 _blockCount, uint256 _ratioBase10000) external configExists(_cid) onlyOwner
 
-	// 2.1 test modifier::onlyOwner setConfig revert if call from address != address(owner)
+	// 2.1 test modifier::onlyOwner can call setConfig function; should be reverted if call from address != address(owner)
 	
 	function test_setConfig_revert_if_call_from_non_owner() public {
-		/// 2.1.1 owner add config first
+		/// owner adds config first
 		hevm.prank(admin);
 		yuzustake.addConfig(10000, 40000);
 		
-		/// 2.1.2 set config by non-owner
+		/// set config by non-owner, which should be reverted;
 		hevm.prank(u1);
 		hevm.expectRevert("Ownable: caller is not the owner");
 		yuzustake.setConfig(0, 2, 3);
 
 
-		/// 2.1.3 check config remain unchange
+		/// check config remain unchange
 		(uint blockcnt, uint ratiobase) = yuzustake.configs(0);
 		assertEq(blockcnt, 10000);
 		assertEq(ratiobase, 40000);
 	}
 
+	// Fuzzing the inputs for the test given above.
 	function test_setConfig_revert_if_call_from_non_owner1(uint blockcnt, uint ratiobase) public {
-		/// 2.1.1 owner add config first
+		/// owner adds config first
 		hevm.prank(admin);
 		yuzustake.addConfig(blockcnt, ratiobase);
 		
-		/// 2.1.2 set config by non-owner
+		/// set config by non-owner
 		hevm.prank(u1);
 		hevm.expectRevert("Ownable: caller is not the owner");
 		yuzustake.setConfig(0, 2, 3);
 
 
-		/// 2.1.3 check config remain unchange
+		/// check config remain unchange
 		(uint blockcnt_, uint ratiobase_) = yuzustake.configs(0);
 		assertEq(blockcnt, blockcnt_);
 		assertEq(ratiobase, ratiobase_);
@@ -118,29 +123,30 @@ contract YuzuStakeTest is DSTestPlus {
 
 	// 2.2 test modifier::configExists(_cid) setConfig revert if $_cid is equal or greater to $configs.length
 	function test_setConfig_revert_if_cid_not_exist_0(uint32 cid) public {
-		/// 2.1.2 set not exist config
+		/// set not exist config, should be reverted.
 		hevm.prank(admin);
 		hevm.expectRevert("YuzuStake: config should exists");
 		yuzustake.setConfig(cid, 2, 3);
 
 
-		/// 2.1.3 check config lenght is 0
+		/// check config lenght is 0
 		assertEq(yuzustake.configLength(), 0);
 	}
 
+	//Fuzzing the inputs of the test given above;
 	function test_setConfig_revert_if_cid_not_exist_1(uint blockcnt, uint ratiobase, uint blockcnt1, uint ratiobase1, uint32 cid) public {
-		/// 2.1.1 owner add config first
+		/// owner adds config first
 		hevm.prank(admin);
 		yuzustake.addConfig(blockcnt, ratiobase);
 		
-		/// 2.1.2 set non exist config 
+		/// set non exist config 
 		hevm.prank(admin);
 		hevm.assume(cid >= 1);
 		hevm.expectRevert("YuzuStake: config should exists");
 		yuzustake.setConfig(cid, blockcnt1, ratiobase1);
 
 
-		/// 2.1.3 check config lenght is 1 and value correct(remain unchange)
+		/// check config lenght is 1 and value correct(remain unchange)
 		assertEq(yuzustake.configLength(), 1);
 		(uint blockcnt_, uint ratiobase_) = yuzustake.configs(0);
 		assertEq(blockcnt, blockcnt_);
@@ -149,7 +155,7 @@ contract YuzuStakeTest is DSTestPlus {
 
 	// 2.3 test setConfig succeed when _cid exists and call from address == address(owner)
 	function test_setConfig_succeed(uint blockcnt, uint ratiobase, uint blockcnt1, uint ratiobase1) public {
-		/// 2.1.1 owner add config first
+		/// 2.1.1 owner adds config first
 		hevm.prank(admin);
 		yuzustake.addConfig(blockcnt, ratiobase);
 		
@@ -160,16 +166,16 @@ contract YuzuStakeTest is DSTestPlus {
 
 	// 2.4 test $configs[_cid].blockCount == $_blockCount, $configs[_cid].ratioBase10000 == $_ratioBase10000 when setConfig succeed
 	function test_setConfig_succeed0(uint blockcnt, uint ratiobase, uint blockcnt1, uint ratiobase1) public {
-		/// 2.1.1 owner add config first
+		/// owner adds config first
 		hevm.prank(admin);
 		yuzustake.addConfig(blockcnt, ratiobase);
 		
-		/// 2.1.2 setconfig[0]
+		/// setconfig[0]
 		hevm.prank(admin);
 		yuzustake.setConfig(0, blockcnt1, ratiobase1);
 
 
-		/// 2.1.3 check config lenght is 1 and value correct
+		/// check config lenght is 1 and value correct
 		assertEq(yuzustake.configLength(), 1);
 		(uint blockcnt_, uint ratiobase_) = yuzustake.configs(0);
 		assertEq(blockcnt1, blockcnt_);
@@ -177,11 +183,11 @@ contract YuzuStakeTest is DSTestPlus {
 	}
 	// 2.5 test event::ConfigChanged(_cid, _blockCount, _ratioBase10000) emit, with correct parameters
 	function test_setConfig_event_emit(uint blockcnt, uint ratiobase) public {
-		/// 2.5.1 owner add config first
+		/// owner adds config first
 		hevm.prank(admin);
 		yuzustake.addConfig(blockcnt, ratiobase);
 
-		/// 2.5.2 owner set config
+		/// owner set config
 		hevm.prank(admin);
 		hevm.expectEmit(true, true, true, true);
 		emit ConfigChanged(0, blockcnt, ratiobase);
@@ -193,15 +199,15 @@ contract YuzuStakeTest is DSTestPlus {
 	}
 	// 2.6 test $configs.length NOT change after setConfig
 	function test_setConfig_length(uint blockcnt, uint ratiobase) public {
-		/// 1 owner add config first
+		/// owner adds config first
 
 		hevm.prank(admin);
 		yuzustake.addConfig(blockcnt, ratiobase);
 		uint len = yuzustake.configLength();
 
-		/// 2 owner set cnfig
+		/// owner set config
 		hevm.prank(admin);
-		yuzustake.setConfig(0,blockcnt, ratiobase);
+		yuzustake.setConfig(0, blockcnt, ratiobase);
 		uint len1 = yuzustake.configLength();
 		
 		assertEq(len, len1);
@@ -210,7 +216,7 @@ contract YuzuStakeTest is DSTestPlus {
 
 	// 3. addConfig(uint256 _blockCount, uint256 _ratioBase10000) external onlyOwner
 	
-	// 3.1 test modifier::onlyOwner addConfig revert if call from address != address(owner)
+	// 3.1 test modifier::onlyOwner addConfig reverts if call from address != address(owner)
 	function test_addConfig_revert_if_call_from_non_owner() public {
 		hevm.prank(u1);
 		hevm.expectRevert("Ownable: caller is not the owner");
@@ -218,7 +224,7 @@ contract YuzuStakeTest is DSTestPlus {
 		
 	}
 	
-	// 3.2 test addConfig succeed call from address == address(owner) with legitemate parameters
+	// 3.2 test addConfig succeed call from address == address(owner) with legitimate parameters
 	function test_addConfig_succeed(uint blockcnt, uint ratiobase) public {
 		hevm.prank(admin);
 		yuzustake.addConfig(blockcnt, ratiobase);
@@ -227,9 +233,13 @@ contract YuzuStakeTest is DSTestPlus {
 
 	// 3.3 test $configs.length advance by 1 after addConfig
 	function test_addConfig_configLength(uint blockcnt, uint ratiobase) public {
+		//get the current length of configurations.
 		uint len = yuzustake.configLength();
+		//set the prank as the admin.
 		hevm.prank(admin);
+		// add a new configuration.
 		yuzustake.addConfig(blockcnt, ratiobase);
+		// the length should be increased by 1.
 		assertEq(yuzustake.configLength(), len+1);
 		
 	}
@@ -237,8 +247,11 @@ contract YuzuStakeTest is DSTestPlus {
 	// 3.3 test $configs[-1].blockCount == $_blockCount, $configs[-1].ratioBase10000 == $_ratioBase10000 when addConfig succeed
 	function test_addConfig_config_value(uint blockcnt, uint ratiobase) public {
 		hevm.prank(admin);
+		// add new config
 		yuzustake.addConfig(blockcnt, ratiobase);
+		// retrieve the added config
 		(uint blockcnt_, uint ratiobase_) = yuzustake.configs(0);
+		// the values should be the same.
 		assertEq(blockcnt, blockcnt_);
 		assertEq(ratiobase, ratiobase_);
 	}
@@ -248,9 +261,11 @@ contract YuzuStakeTest is DSTestPlus {
 		hevm.prank(admin);
 		hevm.expectEmit(true, true, true, true);
 		emit ConfigChanged(0, blockcnt, ratiobase);
+		//add a new config
 		yuzustake.addConfig(blockcnt, ratiobase);
 		
 		(uint blockcnt_, uint ratiobase_) = yuzustake.configs(0);
+		// the values should be the same as the added config.
 		assertEq(blockcnt, blockcnt_);
 		assertEq(ratiobase, ratiobase_);
 	}
@@ -259,77 +274,77 @@ contract YuzuStakeTest is DSTestPlus {
 	
 	// 4.1 test modifier::configExists(_cid) stake revert if $_cid is equal or greater to $configs.length
 	function test_stake_revert_on_non_exisit_config() public {
-		// 1. give user some yuzu
+		// give user some yuzu
 		yuzu.mint(u1, 1000);
 		hevm.startPrank(u1);
 		yuzu.approve(address(yuzustake), 1000);
 		
-		// 2. stake 
+		// stake should be failed if there is no config in the system.
 		hevm.expectRevert("YuzuStake: config should exists");
 		yuzustake.stake(10, 0);
 	}
 
 	// 4.2 test stake revert if Config.blockCount == 0 OR Config.ratioBase10000 == 0
 	function test_stake_revert_on_zero_config() public {
-		// 1. add config first 
+		// add config first 
 		hevm.prank(admin);
 		yuzustake.addConfig(0, 0);
-		// 2. give user some yuzu
+		// give user some yuzu
 		yuzu.mint(u1, 1000);
 		hevm.startPrank(u1);
 		yuzu.approve(address(yuzustake), 1000);
 		
-		// 2. stake 
+		// stake should be reverted if the existing config is not initialized (having zero values) 
 		hevm.expectRevert("YuzuStake: Config should be inited");
 		yuzustake.stake(10, 0);
 	}
 
 	// 4.3 test balance(this) increase $_amount AND balance(msg.sender) decrease $_amount AND xyuzu.balance(msg.sender) increase $_amount / 10_000 (according to their doc)
 	function test_stake_succeed(uint32 blockcnt, uint32 ratiobase, uint128 amount) public {
-		// 1. add config first 
+		// add config first 
 		hevm.prank(admin);
 		hevm.assume(blockcnt!= 0 && ratiobase != 0);
 		yuzustake.addConfig(uint256(blockcnt), uint256(ratiobase));
-		// 2. give user some yuzu
+		// give user some yuzu
 		yuzu.mint(u1, amount);
 		hevm.startPrank(u1);
 		yuzu.approve(address(yuzustake), amount);
 		
-		// 2. stake 
+		// stake should be successful 
 		yuzustake.stake(amount, 0);
 
-		// 3.1 user balance
+		// check user balance
 		assertEq(yuzu.balanceOf(u1), 0);
 		assertEq(yuzustake.balanceOf(u1),  uint256(amount).mul(ratiobase).div(PRECISION));
 
-		// 3.2 contract balance
+		// check contract balance
 		assertEq(yuzu.balanceOf(address(yuzustake)), uint256(amount));
 		assertEq(yuzustake.totalSupply(),  uint256(amount).mul(ratiobase).div(PRECISION));
 	}
 
-	// 4.4 test $userOrdreIds[msg.sender][-1] is $orders.length
+	// 4.4 test user's order after his/her stake
 	function test_stake_userOrderIds_length(uint32 blockcnt, uint32 ratiobase, uint128 amount) public {
-		// 1. add config first 
+		// add config first 
 		hevm.prank(admin);
 		hevm.assume(blockcnt!= 0 && ratiobase != 0);
 		yuzustake.addConfig(uint256(blockcnt), uint256(ratiobase));
-		// 2. give user some yuzu
+		// give user some yuzu
 		yuzu.mint(u1, amount);
 		hevm.startPrank(u1);
 		yuzu.approve(address(yuzustake), amount);
 		
-		// 2. stake 
+		// stake should be successful 
 		yuzustake.stake(amount, 0);
 
-		// 3.1 user balance
+		// user balance
 		assertEq(yuzu.balanceOf(u1), 0);
 		assertEq(yuzustake.balanceOf(u1),  uint256(amount).mul(ratiobase).div(PRECISION));
 
-		// 3.2 contract balance
+		// contract balance
 		assertEq(yuzu.balanceOf(address(yuzustake)), uint256(amount));
 		assertEq(yuzustake.totalSupply(),  uint256(amount).mul(ratiobase).div(PRECISION));
 
-		// 3.3 check user orders
+		// check user orders
 		uint oid = yuzustake.userOrdreIds(u1, 0);
 		assertEq(oid, 0);
 	}
@@ -348,30 +363,30 @@ contract YuzuStakeTest is DSTestPlus {
 	*/
 
 	function test_stake_userOrderIds_value(uint32 blockcnt, uint32 ratiobase, uint128 amount) public {
-		// 1. add config first 
+		// add config first 
 		hevm.prank(admin);
 		hevm.assume(blockcnt!= 0 && ratiobase != 0);
 		yuzustake.addConfig(uint256(blockcnt), uint256(ratiobase));
-		// 2. give user some yuzu
+		// give user some yuzu
 		yuzu.mint(u1, amount);
 		hevm.startPrank(u1);
 		yuzu.approve(address(yuzustake), amount);
 		
-		// 2. stake 
+		// stake should be successful 
 		yuzustake.stake(amount, 0);
 
-		// 3.1 user balance
+		// user balance should be updated
 		assertEq(yuzu.balanceOf(u1), 0);
 		assertEq(yuzustake.balanceOf(u1),  uint256(amount).mul(ratiobase).div(PRECISION));
 
-		// 3.2 contract balance
+		// contract balance should be updated
 		assertEq(yuzu.balanceOf(address(yuzustake)), uint256(amount));
 		assertEq(yuzustake.totalSupply(),  uint256(amount).mul(ratiobase).div(PRECISION));
 
-		// 3.3 check user orders
+		// check user orders
 		uint oid = yuzustake.userOrdreIds(u1, 0);
 		assertEq(oid, 0);
-
+		//Retrieve the values in the struct
 		(
 			YUZUStake.StakeOrderStatus  status, //current status of order
 			address from, // who create this order
@@ -383,7 +398,8 @@ contract YuzuStakeTest is DSTestPlus {
 			uint256 depositAmount, // amount of YUZU to deposit
 			uint256 mintAmount //amount of xYUZU to mint)
 		) = yuzustake.orders(0);
-		// uint8(status);
+
+		// Check each value in the struct retrieved.
 		assertEq(uint256(status), uint256(YUZUStake.StakeOrderStatus.STAKING));
 		assertEq(from, u1);
 		assertEq(stakedAt, block.number);
@@ -396,28 +412,28 @@ contract YuzuStakeTest is DSTestPlus {
 	}
 
 	function test_stake_userOrderIds_value1(uint32 blockcnt, uint32 ratiobase, uint128 amount) public {
-		// 1. add config first 
+		// add config first by admin 
 		hevm.prank(admin);
 		hevm.assume(blockcnt!= 0 && ratiobase != 0);
 		yuzustake.addConfig(uint256(blockcnt), uint256(ratiobase));
-		// 2. give user some yuzu
+		// give user some yuzu
 		yuzu.mint(u1, amount);
 		hevm.startPrank(u1);
 		yuzu.approve(address(yuzustake), amount);
 		uint mintAmount_ = uint256(amount).mul(ratiobase).div(PRECISION);
 		
-		// 2. stake 
+		// stake 
 		yuzustake.stake(amount, 0);
 
-		// 3.1 user balance
+		// user balance update
 		assertEq(yuzu.balanceOf(u1), 0);
 		assertEq(yuzustake.balanceOf(u1),  uint256(amount).mul(ratiobase).div(PRECISION));
 
-		// 3.2 contract balance
+		// contract balance update
 		assertEq(yuzu.balanceOf(address(yuzustake)), uint256(amount));
 		assertEq(yuzustake.totalSupply(),  uint256(amount).mul(ratiobase).div(PRECISION));
 
-		// 3.3 check user orders
+		// get and check user orders
 		uint oid = yuzustake.userOrdreIds(u1, 0);
 		assertEq(oid, 0);
 
@@ -432,7 +448,7 @@ contract YuzuStakeTest is DSTestPlus {
 			uint256 depositAmount, // amount of YUZU to deposit
 			uint256 mintAmount //amount of xYUZU to mint)
 		) = yuzustake.orders(0);
-		// uint8(status);
+
 		assertEq(depositAmount, amount);
 		assertEq(mintAmount, mintAmount_);
 
@@ -440,28 +456,28 @@ contract YuzuStakeTest is DSTestPlus {
 
 	// 4.6 test $orders.length increase by 1, $userOrdreIds[msg.sender] increase by one
 	function test_stake_length(uint32 blockcnt, uint32 ratiobase, uint128 amount) public {
-		// 1. add config first 
+		// add config first 
 		hevm.prank(admin);
 		hevm.assume(blockcnt!= 0 && ratiobase != 0);
 		yuzustake.addConfig(uint256(blockcnt), uint256(ratiobase));
-		// 2. give user some yuzu
+		// give user some yuzu
 		yuzu.mint(u1, amount);
 		hevm.startPrank(u1);
 		yuzu.approve(address(yuzustake), amount);
 		uint mintAmount_ = uint256(amount).mul(ratiobase).div(PRECISION);
 		uint len = yuzustake.orderLength();
-		// 2. stake 
+		// stake 
 		yuzustake.stake(amount, 0);
 
-		// 3.1 user balance
+		// user balance should be updated
 		assertEq(yuzu.balanceOf(u1), 0);
 		assertEq(yuzustake.balanceOf(u1),  uint256(amount).mul(ratiobase).div(PRECISION));
 
-		// 3.2 contract balance
+		// The contract balance should be updated successfully
 		assertEq(yuzu.balanceOf(address(yuzustake)), uint256(amount));
 		assertEq(yuzustake.totalSupply(),  uint256(amount).mul(ratiobase).div(PRECISION));
 
-		// 3.3 check user orders
+		// get and check user's order ID
 		uint oid = yuzustake.userOrdreIds(u1, 0);
 		assertEq(oid, 0);
 
@@ -479,11 +495,11 @@ contract YuzuStakeTest is DSTestPlus {
 	*/
 
 	function test_stake_OrderCreated_event(uint32 blockcnt, uint32 ratiobase, uint128 amount) public {
-		// 1. add config first 
+		// add config first by admin, should pass through 
 		hevm.prank(admin);
 		hevm.assume(blockcnt!= 0 && ratiobase != 0);
 		yuzustake.addConfig(uint256(blockcnt), uint256(ratiobase));
-		// 2. give user some yuzu
+		// give user some yuzu token to test
 		yuzu.mint(u1, amount);
 		hevm.startPrank(u1);
 		yuzu.approve(address(yuzustake), amount);
@@ -493,18 +509,18 @@ contract YuzuStakeTest is DSTestPlus {
 		hevm.expectEmit(true, true, true, true);
 		emit OrderCreated(0, u1, block.number,block.number + blockcnt, amount, mintAmount_);
 
-		// 2. stake 
+		// The user should successfully stake YUZU token
 		yuzustake.stake(amount, 0);
 
-		// 3.1 user balance
+		// user balance should be updated
 		assertEq(yuzu.balanceOf(u1), 0);
 		assertEq(yuzustake.balanceOf(u1),  uint256(amount).mul(ratiobase).div(PRECISION));
 
-		// 3.2 contract balance
+		// The contract balance should be updated successfully
 		assertEq(yuzu.balanceOf(address(yuzustake)), uint256(amount));
 		assertEq(yuzustake.totalSupply(),  uint256(amount).mul(ratiobase).div(PRECISION));
 
-		// 3.3 check user orders
+		// get and check user's order ID
 		uint oid = yuzustake.userOrdreIds(u1, 0);
 		assertEq(oid, 0);
 
@@ -523,11 +539,11 @@ contract YuzuStakeTest is DSTestPlus {
 
 	function test_unstake_revert_on_nonexist_order_1(uint32 blockcnt, uint32 ratiobase, uint128 amount) public {
 		// stake 
-		// 1. add config first 
+		// add config first by admin, should pass through 
 		hevm.prank(admin);
 		hevm.assume(blockcnt!= 0 && ratiobase != 0);
 		yuzustake.addConfig(uint256(blockcnt), uint256(ratiobase));
-		// 2. give user some yuzu
+		// give user some yuzu token to test
 		yuzu.mint(u1, amount);
 		hevm.startPrank(u1);
 		yuzu.approve(address(yuzustake), amount);
@@ -537,18 +553,18 @@ contract YuzuStakeTest is DSTestPlus {
 		hevm.expectEmit(true, true, true, true);
 		emit OrderCreated(0, u1, block.number,block.number + blockcnt, amount, mintAmount_);
 
-		// 2. stake 
+		// The user should successfully stake YUZU token
 		yuzustake.stake(amount, 0);
 
-		// 3.1 user balance
+		// user balance should be updated
 		assertEq(yuzu.balanceOf(u1), 0);
 		assertEq(yuzustake.balanceOf(u1),  uint256(amount).mul(ratiobase).div(PRECISION));
 
-		// 3.2 contract balance
+		// The contract balance should be updated successfully
 		assertEq(yuzu.balanceOf(address(yuzustake)), uint256(amount));
 		assertEq(yuzustake.totalSupply(),  uint256(amount).mul(ratiobase).div(PRECISION));
 
-		// 3.3 check user orders
+		// get and check user's order ID
 		uint oid = yuzustake.userOrdreIds(u1, 0);
 		assertEq(oid, 0);
 
@@ -563,11 +579,11 @@ contract YuzuStakeTest is DSTestPlus {
 	// 5.2 test unstake revert if $msg.sender is NOT $orders[_oid].from
 		function test_unstake_revert_on_wrong_msgsender(uint32 blockcnt, uint32 ratiobase, uint128 amount) public {
 		// u1 stake 
-		// 1. add config first 
+		// add config first by admin, should pass through 
 		hevm.prank(admin);
 		hevm.assume(blockcnt!= 0 && ratiobase != 0);
 		yuzustake.addConfig(uint256(blockcnt), uint256(ratiobase));
-		// 2. give user some yuzu
+		// give user some yuzu token to test
 		yuzu.mint(u1, amount);
 		hevm.startPrank(u1);
 		yuzu.approve(address(yuzustake), amount);
@@ -577,18 +593,18 @@ contract YuzuStakeTest is DSTestPlus {
 		hevm.expectEmit(true, true, true, true);
 		emit OrderCreated(0, u1, block.number,block.number + blockcnt, amount, mintAmount_);
 
-		// 2. stake 
+		// The user should successfully stake YUZU token
 		yuzustake.stake(amount, 0);
 
-		// 3.1 user balance
+		// user balance should be updated
 		assertEq(yuzu.balanceOf(u1), 0);
 		assertEq(yuzustake.balanceOf(u1),  uint256(amount).mul(ratiobase).div(PRECISION));
 
-		// 3.2 contract balance
+		// The contract balance should be updated successfully
 		assertEq(yuzu.balanceOf(address(yuzustake)), uint256(amount));
 		assertEq(yuzustake.totalSupply(),  uint256(amount).mul(ratiobase).div(PRECISION));
 
-		// 3.3 check user orders
+		// get and check user's order ID
 		uint oid = yuzustake.userOrdreIds(u1, 0);
 		assertEq(oid, 0);
 
@@ -610,11 +626,11 @@ contract YuzuStakeTest is DSTestPlus {
 	// 5.5 (THEY DO INTERACTION BEFORE STATE CHANGE) test $orders[_oid].mintAmount lpToken burn from $msg.sender after unstake 
 	function test_unstake_values(uint32 blockcnt, uint32 ratiobase, uint128 amount) public {
 				// u1 stake 
-		// 1. add config first 
+		// add config first by admin, should pass through 
 		hevm.prank(admin);
 		hevm.assume(blockcnt!= 0 && ratiobase != 0);
 		yuzustake.addConfig(uint256(blockcnt), uint256(ratiobase));
-		// 2. give user some yuzu
+		// give user some yuzu token to test
 		yuzu.mint(u1, amount);
 		hevm.startPrank(u1);
 		yuzu.approve(address(yuzustake), amount);
@@ -624,18 +640,18 @@ contract YuzuStakeTest is DSTestPlus {
 		hevm.expectEmit(true, true, true, true);
 		emit OrderCreated(0, u1, block.number,block.number + blockcnt, amount, mintAmount_);
 
-		// 2. stake 
+		// The user should successfully stake YUZU token
 		yuzustake.stake(amount, 0);
 
-		// 3.1 user balance
+		// user balance should be updated
 		assertEq(yuzu.balanceOf(u1), 0);
 		assertEq(yuzustake.balanceOf(u1),  uint256(amount).mul(ratiobase).div(PRECISION));
 
-		// 3.2 contract balance
+		// The contract balance should be updated successfully
 		assertEq(yuzu.balanceOf(address(yuzustake)), uint256(amount));
 		assertEq(yuzustake.totalSupply(),  uint256(amount).mul(ratiobase).div(PRECISION));
 
-		// 3.3 check user orders
+		// get and check user's order ID
 		uint oid = yuzustake.userOrdreIds(u1, 0);
 		assertEq(oid, 0);
 
@@ -645,10 +661,10 @@ contract YuzuStakeTest is DSTestPlus {
 		// unstake
 		hevm.roll(block.number + blockcnt);
 		yuzustake.unstake(0);
-		// 1. check user balance
+		// check user balance update after unstaking
 		assertEq(yuzu.balanceOf(u1), 0);
 		assertEq(yuzustake.balanceOf(u1), 0);
-		// 2. check contract balance
+		// check contract balance after unstaking
 		assertEq(yuzu.balanceOf(address(yuzustake)), amount);
 		assertEq(yuzustake.totalSupply(),  0);
 
@@ -665,11 +681,11 @@ contract YuzuStakeTest is DSTestPlus {
 
 	function test_unstake_states(uint32 blockcnt, uint32 ratiobase, uint128 amount) public {
 				// u1 stake 
-		// 1. add config first 
+		// add config first by admin, should pass through 
 		hevm.prank(admin);
 		hevm.assume(blockcnt!= 0 && ratiobase != 0);
 		yuzustake.addConfig(uint256(blockcnt), uint256(ratiobase));
-		// 2. give user some yuzu
+		// give user some yuzu token to test
 		yuzu.mint(u1, amount);
 		hevm.startPrank(u1);
 		yuzu.approve(address(yuzustake), amount);
@@ -679,18 +695,18 @@ contract YuzuStakeTest is DSTestPlus {
 		hevm.expectEmit(true, true, true, true);
 		emit OrderCreated(0, u1, block.number,block.number + blockcnt, amount, mintAmount_);
 
-		// 2. stake 
+		// The user should successfully stake YUZU token
 		yuzustake.stake(amount, 0);
 
-		// 3.1 user balance
+		// user balance should be updated
 		assertEq(yuzu.balanceOf(u1), 0);
 		assertEq(yuzustake.balanceOf(u1),  uint256(amount).mul(ratiobase).div(PRECISION));
 
-		// 3.2 contract balance
+		// The contract balance should be updated successfully
 		assertEq(yuzu.balanceOf(address(yuzustake)), uint256(amount));
 		assertEq(yuzustake.totalSupply(),  uint256(amount).mul(ratiobase).div(PRECISION));
 
-		// 3.3 check user orders
+		// get and check user's order ID
 		uint oid = yuzustake.userOrdreIds(u1, 0);
 		assertEq(oid, 0);
 
@@ -700,13 +716,13 @@ contract YuzuStakeTest is DSTestPlus {
 		// unstake
 		hevm.roll(block.number + blockcnt);
 		yuzustake.unstake(0);
-		// 1. check user balance
+		// check user balance update after unstaking
 		assertEq(yuzu.balanceOf(u1), 0);
 		assertEq(yuzustake.balanceOf(u1), 0);
-		// 2. check contract balance
+		// check contract balance after unstaking
 		assertEq(yuzu.balanceOf(address(yuzustake)), amount);
 		assertEq(yuzustake.totalSupply(),  0);
-		// 3. check status and unstakedEndBlockNumber
+		// check status and unstakedEndBlockNumber
 		(
 			YUZUStake.StakeOrderStatus  status, //current status of order
 			address from, // who create this order
@@ -736,11 +752,11 @@ contract YuzuStakeTest is DSTestPlus {
 
 	function test_unstake_event_emit(uint32 blockcnt, uint32 ratiobase, uint128 amount) public {
 		// u1 stake 
-		// 1. add config first 
+		// add config first by admin, should pass through 
 		hevm.prank(admin);
 		hevm.assume(blockcnt!= 0 && ratiobase != 0);
 		yuzustake.addConfig(uint256(blockcnt), uint256(ratiobase));
-		// 2. give user some yuzu
+		// give user some yuzu token to test
 		yuzu.mint(u1, amount);
 		hevm.startPrank(u1);
 		yuzu.approve(address(yuzustake), amount);
@@ -750,18 +766,18 @@ contract YuzuStakeTest is DSTestPlus {
 		hevm.expectEmit(true, true, true, true);
 		emit OrderCreated(0, u1, block.number,block.number + blockcnt, amount, mintAmount_);
 
-		// 2. stake 
+		// The user should successfully stake YUZU token
 		yuzustake.stake(amount, 0);
 
-		// 3.1 user balance
+		// user balance should be updated
 		assertEq(yuzu.balanceOf(u1), 0);
 		assertEq(yuzustake.balanceOf(u1),  uint256(amount).mul(ratiobase).div(PRECISION));
 
-		// 3.2 contract balance
+		// The contract balance should be updated successfully
 		assertEq(yuzu.balanceOf(address(yuzustake)), uint256(amount));
 		assertEq(yuzustake.totalSupply(),  uint256(amount).mul(ratiobase).div(PRECISION));
 
-		// 3.3 check user orders
+		// get and check user's order ID
 		uint oid = yuzustake.userOrdreIds(u1, 0);
 		assertEq(oid, 0);
 
@@ -774,10 +790,10 @@ contract YuzuStakeTest is DSTestPlus {
 		emit OrderUnstaked(0, block.number, block.number);
 		yuzustake.unstake(0);
 
-		// 1. check user balance
+		// check user balance update after unstaking
 		assertEq(yuzu.balanceOf(u1), 0);
 		assertEq(yuzustake.balanceOf(u1), 0);
-		// 2. check contract balance
+		// check contract balance after unstaking
 		assertEq(yuzu.balanceOf(address(yuzustake)), amount);
 		assertEq(yuzustake.totalSupply(),  0);
 		// 3. check status and unstakedEndBlockNumber
@@ -815,11 +831,11 @@ contract YuzuStakeTest is DSTestPlus {
 
 	function test_withdraw_revert_on_nonexist_order_1(uint32 blockcnt, uint32 ratiobase, uint128 amount) public {
 		// stake 
-		// 1. add config first 
+		// add config first by admin, should pass through 
 		hevm.prank(admin);
 		hevm.assume(blockcnt!= 0 && ratiobase != 0);
 		yuzustake.addConfig(uint256(blockcnt), uint256(ratiobase));
-		// 2. give user some yuzu
+		// give user some yuzu token to test
 		yuzu.mint(u1, amount);
 		hevm.startPrank(u1);
 		yuzu.approve(address(yuzustake), amount);
@@ -829,18 +845,18 @@ contract YuzuStakeTest is DSTestPlus {
 		hevm.expectEmit(true, true, true, true);
 		emit OrderCreated(0, u1, block.number,block.number + blockcnt, amount, mintAmount_);
 
-		// 2. stake 
+		// The user should successfully stake YUZU token
 		yuzustake.stake(amount, 0);
 
-		// 3.1 user balance
+		// user balance should be updated
 		assertEq(yuzu.balanceOf(u1), 0);
 		assertEq(yuzustake.balanceOf(u1),  uint256(amount).mul(ratiobase).div(PRECISION));
 
-		// 3.2 contract balance
+		// The contract balance should be updated successfully
 		assertEq(yuzu.balanceOf(address(yuzustake)), uint256(amount));
 		assertEq(yuzustake.totalSupply(),  uint256(amount).mul(ratiobase).div(PRECISION));
 
-		// 3.3 check user orders
+		// get and check user's order ID
 		uint oid = yuzustake.userOrdreIds(u1, 0);
 		assertEq(oid, 0);
 
@@ -855,11 +871,11 @@ contract YuzuStakeTest is DSTestPlus {
 	// 6.2 test withdraw revert if $msg.sender is NOT $orders[_oid].from
 	function test_withdraw_revert_on_wrong_msgsender(uint32 blockcnt, uint32 ratiobase, uint128 amount) public {
 		// stake 
-		// 1. add config first 
+		// add config first by admin, should pass through 
 		hevm.prank(admin);
 		hevm.assume(blockcnt!= 0 && ratiobase != 0);
 		yuzustake.addConfig(uint256(blockcnt), uint256(ratiobase));
-		// 2. give user some yuzu
+		// give user some yuzu token to test
 		yuzu.mint(u1, amount);
 		hevm.startPrank(u1);
 		yuzu.approve(address(yuzustake), amount);
@@ -869,18 +885,18 @@ contract YuzuStakeTest is DSTestPlus {
 		hevm.expectEmit(true, true, true, true);
 		emit OrderCreated(0, u1, block.number,block.number + blockcnt, amount, mintAmount_);
 
-		// 2. stake 
+		// The user should successfully stake YUZU token
 		yuzustake.stake(amount, 0);
 
-		// 3.1 user balance
+		// user balance should be updated
 		assertEq(yuzu.balanceOf(u1), 0);
 		assertEq(yuzustake.balanceOf(u1),  uint256(amount).mul(ratiobase).div(PRECISION));
 
-		// 3.2 contract balance
+		// The contract balance should be updated successfully
 		assertEq(yuzu.balanceOf(address(yuzustake)), uint256(amount));
 		assertEq(yuzustake.totalSupply(),  uint256(amount).mul(ratiobase).div(PRECISION));
 
-		// 3.3 check user orders
+		// get and check user's order ID
 		uint oid = yuzustake.userOrdreIds(u1, 0);
 		assertEq(oid, 0);
 
@@ -888,6 +904,7 @@ contract YuzuStakeTest is DSTestPlus {
 
 		// withdraw
 		hevm.expectRevert("YuzuStake: not order owner ");
+		hevm.stopPrank();
 		hevm.prank(u2);
 		yuzustake.unstake(0);
 
@@ -896,11 +913,11 @@ contract YuzuStakeTest is DSTestPlus {
 	// 6.3 test withdraw revert if $orders[_oid] is NOT in state::StakeOrderStatus.UNSTAKED (== 1)
 	function test_withdraw_revert_on_wrong_state(uint32 blockcnt, uint32 ratiobase, uint128 amount) public {
 		// stake 
-		// 1. add config first 
+		// add config first by admin, should pass through 
 		hevm.prank(admin);
 		hevm.assume(blockcnt!= 0 && ratiobase != 0);
 		yuzustake.addConfig(uint256(blockcnt), uint256(ratiobase));
-		// 2. give user some yuzu
+		// give user some yuzu token to test
 		yuzu.mint(u1, amount);
 		hevm.startPrank(u1);
 		yuzu.approve(address(yuzustake), amount);
@@ -910,18 +927,18 @@ contract YuzuStakeTest is DSTestPlus {
 		hevm.expectEmit(true, true, true, true);
 		emit OrderCreated(0, u1, block.number,block.number + blockcnt, amount, mintAmount_);
 
-		// 2. stake 
+		// The user should successfully stake YUZU token
 		yuzustake.stake(amount, 0);
 
-		// 3.1 user balance
+		// user balance should be updated
 		assertEq(yuzu.balanceOf(u1), 0);
 		assertEq(yuzustake.balanceOf(u1),  uint256(amount).mul(ratiobase).div(PRECISION));
 
-		// 3.2 contract balance
+		// The contract balance should be updated successfully
 		assertEq(yuzu.balanceOf(address(yuzustake)), uint256(amount));
 		assertEq(yuzustake.totalSupply(),  uint256(amount).mul(ratiobase).div(PRECISION));
 
-		// 3.3 check user orders
+		// get and check user's order ID
 		uint oid = yuzustake.userOrdreIds(u1, 0);
 		assertEq(oid, 0);
 
@@ -937,11 +954,11 @@ contract YuzuStakeTest is DSTestPlus {
 	// 6.4 test withdraw revert if call before stakeEndBlockNumber reached (unstakedEndBlockNumber <= block.number)
 	function test_withdraw_revert_on_before_block_limit(uint32 blockcnt, uint32 ratiobase, uint128 amount) public {
 		// stake 
-		// 1. add config first 
+		// add config first by admin, should pass through 
 		hevm.prank(admin);
 		hevm.assume(blockcnt!= 0 && ratiobase != 0);
 		yuzustake.addConfig(uint256(blockcnt), uint256(ratiobase));
-		// 2. give user some yuzu
+		// give user some yuzu token to test
 		yuzu.mint(u1, amount);
 		hevm.startPrank(u1);
 		yuzu.approve(address(yuzustake), amount);
@@ -951,18 +968,18 @@ contract YuzuStakeTest is DSTestPlus {
 		hevm.expectEmit(true, true, true, true);
 		emit OrderCreated(0, u1, block.number,block.number + blockcnt, amount, mintAmount_);
 
-		// 2. stake 
+		// The user should successfully stake YUZU token
 		yuzustake.stake(amount, 0);
 
-		// 3.1 user balance
+		// user balance should be updated
 		assertEq(yuzu.balanceOf(u1), 0);
 		assertEq(yuzustake.balanceOf(u1),  uint256(amount).mul(ratiobase).div(PRECISION));
 
-		// 3.2 contract balance
+		// The contract balance should be updated successfully
 		assertEq(yuzu.balanceOf(address(yuzustake)), uint256(amount));
 		assertEq(yuzustake.totalSupply(),  uint256(amount).mul(ratiobase).div(PRECISION));
 
-		// 3.3 check user orders
+		// get and check user's order ID
 		uint oid = yuzustake.userOrdreIds(u1, 0);
 		assertEq(oid, 0);
 
@@ -998,11 +1015,11 @@ contract YuzuStakeTest is DSTestPlus {
 	*/
 	function test_withdraw_states(uint32 blockcnt, uint32 ratiobase, uint128 amount) public {
 		// stake 
-		// 1. add config first 
+		// add config first by admin, should pass through 
 		hevm.prank(admin);
 		hevm.assume(blockcnt!= 0 && ratiobase != 0);
 		yuzustake.addConfig(uint256(blockcnt), uint256(ratiobase));
-		// 2. give user some yuzu
+		// give user some yuzu token to test
 		yuzu.mint(u1, amount);
 		hevm.startPrank(u1);
 		yuzu.approve(address(yuzustake), amount);
@@ -1012,18 +1029,18 @@ contract YuzuStakeTest is DSTestPlus {
 		hevm.expectEmit(true, true, true, true);
 		emit OrderCreated(0, u1, block.number,block.number + blockcnt, amount, mintAmount_);
 
-		// 2. stake 
+		// The user should successfully stake YUZU token
 		yuzustake.stake(amount, 0);
 
-		// 3.1 user balance
+		// user balance should be updated
 		assertEq(yuzu.balanceOf(u1), 0);
 		assertEq(yuzustake.balanceOf(u1),  uint256(amount).mul(ratiobase).div(PRECISION));
 
-		// 3.2 contract balance
+		// The contract balance should be updated successfully
 		assertEq(yuzu.balanceOf(address(yuzustake)), uint256(amount));
 		assertEq(yuzustake.totalSupply(),  uint256(amount).mul(ratiobase).div(PRECISION));
 
-		// 3.3 check user orders
+		// get and check user's order ID
 		uint oid = yuzustake.userOrdreIds(u1, 0);
 		assertEq(oid, 0);
 
@@ -1059,11 +1076,11 @@ contract YuzuStakeTest is DSTestPlus {
 	// 6.6 test token transfer from address(this) to msg.sender
 		function test_withdraw_balances(uint32 blockcnt, uint32 ratiobase, uint128 amount) public {
 		// stake 
-		// 1. add config first 
+		// add config first by admin, should pass through 
 		hevm.prank(admin);
 		hevm.assume(blockcnt!= 0 && ratiobase != 0);
 		yuzustake.addConfig(uint256(blockcnt), uint256(ratiobase));
-		// 2. give user some yuzu
+		// give user some yuzu token to test
 		yuzu.mint(u1, amount);
 		hevm.startPrank(u1);
 		yuzu.approve(address(yuzustake), amount);
@@ -1073,18 +1090,18 @@ contract YuzuStakeTest is DSTestPlus {
 		hevm.expectEmit(true, true, true, true);
 		emit OrderCreated(0, u1, block.number,block.number + blockcnt, amount, mintAmount_);
 
-		// 2. stake 
+		// The user should successfully stake YUZU token
 		yuzustake.stake(amount, 0);
 
-		// 3.1 user balance
+		// user balance should be updated
 		assertEq(yuzu.balanceOf(u1), 0);
 		assertEq(yuzustake.balanceOf(u1),  uint256(amount).mul(ratiobase).div(PRECISION));
 
-		// 3.2 contract balance
+		// The contract balance should be updated successfully
 		assertEq(yuzu.balanceOf(address(yuzustake)), uint256(amount));
 		assertEq(yuzustake.totalSupply(),  uint256(amount).mul(ratiobase).div(PRECISION));
 
-		// 3.3 check user orders
+		// get and check user's order ID
 		uint oid = yuzustake.userOrdreIds(u1, 0);
 		assertEq(oid, 0);
 
@@ -1117,11 +1134,11 @@ contract YuzuStakeTest is DSTestPlus {
 		assertEq(withdrawAt, block.number);
 
 		// balance checking
-		// 1 user balance
+		// checking user balance
 		assertEq(yuzu.balanceOf(u1), amount);
 		assertEq(yuzustake.balanceOf(u1),  0);
 
-		// 2 contract balance
+		// checking contract balance
 		assertEq(yuzu.balanceOf(address(yuzustake)),0);
 		assertEq(yuzustake.totalSupply(),  0);
 
